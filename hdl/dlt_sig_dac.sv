@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 `default_nettype none
 
 module dlt_sig_dac_1st_order (

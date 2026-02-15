@@ -1,5 +1,6 @@
 `timescale 1ns / 1ps
 `default_nettype none
+
 module top_level (
     input  wire         clk_100mhz,
     output logic [15:0] led,
@@ -83,6 +84,15 @@ module top_level (
       .count(square_count)
   );
 
+  logic signed [19:0] additive_sample;
+  logic additive_sample_valid;
+  additive_synth my_synth (
+      .clk(clk_100mhz),
+      .rst(sys_rst),
+      .sample_out(additive_sample),
+      .sample_valid(additive_sample_valid)
+  );
+
   counter sampled_counter (
       .clk(clk_100mhz),
       .rst(sys_rst),
@@ -96,7 +106,7 @@ module top_level (
   logic [31:0] sample_cycle_count;
 
   always_ff @(posedge clk_100mhz) begin
-    sample_out <= sw[2] ? $signed(sw[0] ? sin_sample : sin_upsample) >>> wave_shift : 0;
+    sample_out <= sw[2] ? $signed(sin_upsample) >>> wave_shift : 0;
   end
 
   sin_gen my_sin_gen (
@@ -111,8 +121,8 @@ module top_level (
   upsampler my_upsample (
       .clk(clk_100mhz),
       .rst(sys_rst),
-      .sample_in(sin_sample),
-      .sample_in_valid(sample_cycle_count == 2),
+      .sample_in($signed(sw[0] ? sin_sample : additive_sample[17:2])),
+      .sample_in_valid(sw[0] ? sample_cycle_count == 2 : additive_sample_valid),
       .sample_out(sin_upsample)
   );
 
@@ -139,4 +149,5 @@ module top_level (
     spk <= spk_out ? 1'bZ : 1'b0;
   end
 endmodule
+
 `default_nettype wire

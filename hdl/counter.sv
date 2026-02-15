@@ -1,3 +1,6 @@
+`timescale 1ns / 1ps
+`default_nettype none
+
 module counter (
     input wire clk,
     input wire rst,
@@ -14,3 +17,5 @@ module counter (
   end
 
 endmodule
+
+`default_nettype wire

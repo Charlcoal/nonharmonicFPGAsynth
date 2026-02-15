@@ -11,16 +11,6 @@ create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports { c
 
 # CDC
 
-set_max_delay -datapath_only 6 -from  [get_clocks clk_pll_i] -to [get_clocks sys_clk_pin]
-set_max_delay -datapath_only 6 -from  [get_clocks sys_clk_pin] -to [get_clocks clk_pll_i]
-
-set_max_delay -datapath_only 6 -from  [get_clocks clk_pll_i] -to [get_clocks clk_pixel_cw_hdmi]
-set_max_delay -datapath_only 6 -from  [get_clocks clk_pixel_cw_hdmi] -to [get_clocks clk_pll_i]
-
-set_max_delay -datapath_only 6 -from  [get_clocks sys_clk_pin] -to [get_clocks clk_pixel_cw_hdmi]
-set_max_delay -datapath_only 6 -from  [get_clocks clk_pixel_cw_hdmi] -to [get_clocks sys_clk_pin]
-
-
 #Switches
 
 set_property -dict { PACKAGE_PIN J15   IOSTANDARD LVCMOS33 } [get_ports { sw[0] }]; #IO_L24N_T3_RS0_15 Sch=sw[0]

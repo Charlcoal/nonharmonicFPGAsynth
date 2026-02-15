@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 `default_nettype none
 
 // delays by 3 (or more at very high angular frequencies) samples

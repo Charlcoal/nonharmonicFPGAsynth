@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 `default_nettype none
 
 `ifdef SYNTHESIS
@@ -130,22 +131,5 @@ module upsampler (
   end
 endmodule
 
-module dist_ram (
-    input wire clk,
-    input wire [5:0] addr,
-    input wire we,
-    input wire [15:0] din,
-    output logic [15:0] dout
-);
-
-  logic [15:0] data[63:0];
-  assign dout = data[addr];
-
-  always_ff @(posedge clk) begin
-    if (we) begin
-      data[addr] <= din;
-    end
-  end
-endmodule
 
 `default_nettype wire
