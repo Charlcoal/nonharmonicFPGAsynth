@@ -23,8 +23,8 @@ module cordic_sin_pipelined (
       .m_axis_dout_tvalid (out_valid)                       // output wire
   );
 
-  assign cos = out_data[31:16];
-  assign sin = out_data[15:0];
+  assign sin = out_data[31:16];
+  assign cos = out_data[15:0];
 `else  /* ! SYNTHESIS */
 
   // minimum logic for latency matching
