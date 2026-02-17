@@ -31,13 +31,21 @@ module cordic_sin_pipelined (
   logic [19:0][13:0] angle_pipe;
   logic [19:0] valid_pipe;
 
+  real angle_in_rads;
+  real sin_real;
+  real cos_real;
+
+  assign angle_in_rads = $itor(int'($signed(angle_pipe[19]))) * 3.835e-4;  // pi / 2^12
+  assign sin_real = $sin(angle_in_rads);
+  assign cos_real = $cos(angle_in_rads);
+
   always_ff @(posedge clk) begin
     angle_pipe <= {angle_pipe[18:0], angle};
     valid_pipe <= {valid_pipe[18:0], angle_valid};
   end
 
-  assign sin = {angle_pipe[19], 2'b00};
-  assign cos = {angle_pipe[19], 2'b00};
+  assign sin = $rtoi(sin_real * 16384);
+  assign cos = $rtoi(cos_real * 16384);
   assign out_valid = valid_pipe[19];
 
 `endif  /* ! SYNTHESIS */

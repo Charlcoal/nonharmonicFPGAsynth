@@ -103,7 +103,7 @@ def test_sin_and_dac_runner():
     sources = [
         proj_path / "hdl" / "dlt_sig_dac.sv",
         proj_path / "hdl" / "sin_and_dac.sv",
-        proj_path / "hdl" / "sig_gen.sv",
+        proj_path / "hdl" / "sin_gen.sv",
     ]
     build_test_args = ["-Wall"]
     parameters = {}

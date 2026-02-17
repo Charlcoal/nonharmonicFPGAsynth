@@ -7,6 +7,7 @@ def square_wave(n, base_freq):
     output: tuple of lists; frequencies, intensities, and phases of sin waves
     """
     freqs = [base_freq * (2 * i + 1) for i in range(n)]
+    freqs = [0 if freq >= 2**18 else freq for freq in freqs]
     intensities = [round((2**17) * 4 / (pi * (2 * i + 1))) for i in range(n)]
     phases = [0 for i in range(n)]
     return (freqs, intensities, phases)
@@ -30,4 +31,4 @@ def write_files(freqs, intensities, phases):
 
 
 if __name__ == "__main__":
-    write_files(*square_wave(100, 256))
+    write_files(*square_wave(1024, 256))

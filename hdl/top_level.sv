@@ -84,11 +84,20 @@ module top_level (
       .count(square_count)
   );
 
+  logic [11:0] sig_gen_sample_cycle_count;
+  audio_sig_gen my_sig_gen (
+      .clk(clk_100mhz),
+      .rst(sys_rst),
+      .sample_cycle_count(sig_gen_sample_cycle_count)
+  );
+
   logic signed [19:0] additive_sample;
   logic additive_sample_valid;
   additive_synth my_synth (
       .clk(clk_100mhz),
       .rst(sys_rst),
+      .base_freq_in(wave_frequency[17:0]),
+      .sample_cycle_count(sig_gen_sample_cycle_count),
       .sample_out(additive_sample),
       .sample_valid(additive_sample_valid)
   );

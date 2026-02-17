@@ -11,18 +11,29 @@
 module additive_synth (
     input wire clk,
     input wire rst,
+    input wire [17:0] base_freq_in,
+    input wire [11:0] sample_cycle_count,
     output logic signed [19:0] sample_out,
     output logic sample_valid
 );
-  localparam SAMPLE_CYCLE_LENGTH = 2272;
+  localparam BRAM_DEPTH = 1024;
+  localparam BRAM_READ_DELAY = 2;
+  localparam PHASE_UPDATE_DELAY = 1;
+  localparam SIN_CALCULATE_DELAY = 20;
+  localparam FREQUENCY_CALCULATE_DELAY = 1;
 
-  logic [11:0] sample_cycle_count;
+  localparam FREQUENCY_CALCULATE_FINISH_TIME = FREQUENCY_CALCULATE_DELAY + BRAM_READ_DELAY;
+  localparam PHASE_READ_TIME = FREQUENCY_CALCULATE_FINISH_TIME - BRAM_READ_DELAY;
+  localparam PHASE_WRITE_TIME = FREQUENCY_CALCULATE_FINISH_TIME + PHASE_UPDATE_DELAY;
+  localparam SIN_CALCULATE_TIME = FREQUENCY_CALCULATE_FINISH_TIME;
+  localparam INTENSITY_READ_TIME = SIN_CALCULATE_TIME + SIN_CALCULATE_DELAY - BRAM_READ_DELAY;
+  localparam ALIAS_CHECK_DELAY = SIN_CALCULATE_TIME + SIN_CALCULATE_DELAY
+                               - FREQUENCY_CALCULATE_FINISH_TIME;
 
+  logic [17:0] base_freq;
   always_ff @(posedge clk) begin
-    if (rst || sample_cycle_count >= SAMPLE_CYCLE_LENGTH - 1) begin
-      sample_cycle_count <= 0;
-    end else begin
-      sample_cycle_count <= sample_cycle_count + 1'b1;
+    if (sample_cycle_count == 12'd0) begin
+      base_freq <= base_freq_in;
     end
   end
 
@@ -33,21 +44,27 @@ module additive_synth (
 
   always_ff @(posedge clk) begin
     frequency_read_index <= sample_cycle_count[9:0];
-    phase_read_index <= sample_cycle_count[9:0];
-    phase_write_index <= sample_cycle_count[9:0] - 10'd3;
-    intensity_read_index <= sample_cycle_count[9:0] - 10'd20;
+    phase_read_index <= sample_cycle_count[9:0] - PHASE_READ_TIME;
+    phase_write_index <= sample_cycle_count[9:0] - PHASE_WRITE_TIME;
+    intensity_read_index <= sample_cycle_count[9:0] - INTENSITY_READ_TIME;
   end
 
   logic is_writing;
 
   logic [17:0] intensity;
-  logic [17:0] frequency;
+  logic [35:0] actual_frequency;
+  logic [17:0] relative_frequency;  // unsigned fixed point: XX_XXXX_XXXX.XXXX_XXXX
   logic [17:0] cur_phase;
   logic [17:0] next_phase;
+  logic [ALIAS_CHECK_DELAY-1:0] alias_pipe;  // check if frequency > nyquist
+
 
   always_ff @(posedge clk) begin
-    next_phase <= cur_phase + frequency;
-    is_writing <= sample_cycle_count >= 12'd3 && sample_cycle_count < 12'd1027;
+    alias_pipe <= {alias_pipe[ALIAS_CHECK_DELAY-2:0], |actual_frequency[35:25]};
+    next_phase <= cur_phase + actual_frequency[25:8];
+    actual_frequency <= base_freq * relative_frequency;
+    is_writing <= sample_cycle_count >= PHASE_WRITE_TIME &&
+                  sample_cycle_count < PHASE_WRITE_TIME + BRAM_DEPTH;
   end
 
   logic sin_input_valid;
@@ -57,10 +74,12 @@ module additive_synth (
   logic signed [35:0] accum;
 
   always_ff @(posedge clk) begin
-    sin_input_valid <= sample_cycle_count >= 12'd2 && sample_cycle_count < 12'd1026;
-    last_sin_valid  <= sin_valid;
+    sin_input_valid <= sample_cycle_count >= SIN_CALCULATE_TIME &&
+                       sample_cycle_count < SIN_CALCULATE_TIME + BRAM_DEPTH;
+    last_sin_valid <= sin_valid;
     if (sin_valid) begin
-      accum <= accum + $signed(sin) * $signed({1'b0, intensity});
+      accum <= alias_pipe[ALIAS_CHECK_DELAY-1] ? accum :
+          accum + $signed(sin) * $signed({1'b0, intensity});
     end else begin
       accum <= 0;
     end
@@ -80,7 +99,7 @@ module additive_synth (
   // 2 cycle delay
   xilinx_single_port_ram_read_first #(
       .RAM_WIDTH(18),  // Specify RAM data width
-      .RAM_DEPTH(1024),  // Specify RAM depth (number of entries)
+      .RAM_DEPTH(BRAM_DEPTH),  // Specify RAM depth (number of entries)
       .RAM_PERFORMANCE("HIGH_PERFORMANCE"),  // "HIGH_PERFORMANCE" or "LOW_LATENCY"
       // Specify name/location of RAM initialization file if using one (leave blank if not)
       .INIT_FILE(
@@ -100,7 +119,7 @@ module additive_synth (
   // 2 cycle delay
   xilinx_single_port_ram_read_first #(
       .RAM_WIDTH(18),  // Specify RAM data width
-      .RAM_DEPTH(1024),  // Specify RAM depth (number of entries)
+      .RAM_DEPTH(BRAM_DEPTH),  // Specify RAM depth (number of entries)
       .RAM_PERFORMANCE("HIGH_PERFORMANCE"),  // "HIGH_PERFORMANCE" or "LOW_LATENCY"
       // Specify name/location of RAM initialization file if using one (leave blank if not)
       .INIT_FILE(
@@ -114,13 +133,13 @@ module additive_synth (
       .ena(1),  // RAM Enable, for additional power savings, disable port when not in use
       .rsta(rst),  // Output reset (does not affect memory contents)
       .regcea(1),  // Output register enable
-      .douta(frequency)  // RAM output data, width determined from RAM_WIDTH
+      .douta(relative_frequency)  // RAM output data, width determined from RAM_WIDTH
   );
 
   // 2 cycle delay
   xilinx_true_dual_port_read_first_1_clock_ram #(
       .RAM_WIDTH(18),  // Specify RAM data width
-      .RAM_DEPTH(1024),  // Specify RAM depth (number of entries)
+      .RAM_DEPTH(BRAM_DEPTH),  // Specify RAM depth (number of entries)
       .RAM_PERFORMANCE("HIGH_PERFORMANCE"),  // Select "HIGH_PERFORMANCE" or "LOW_LATENCY"
       .INIT_FILE (                        // Specify name/location of RAM initialization file if using one (leave blank if not)
       `FPATH(add_synth_phases.mem)

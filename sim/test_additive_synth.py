@@ -4,6 +4,7 @@ from cocotb.triggers import Timer
 import os
 from pathlib import Path
 import sys
+import matplotlib.pyplot as plt
 
 from cocotb.clock import Clock
 from cocotb.triggers import (
@@ -31,14 +32,33 @@ async def reset(rst, clk):
     await ClockCycles(clk, 2)
 
 
+async def signed(val, bits):
+    if val >= (2 ** (bits - 1)):
+        return val - (2**bits)
+    return val
+
+
 @cocotb.test()
 async def test_additive_synth(dut):
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     # set all inputs to 0
     # use helper function to assert reset signal
+    dut.base_freq_in.value = 2048
+    dut.sample_cycle_count.value = 0
     await reset(dut.rst, dut.clk)
 
-    await ClockCycles(dut.clk, 40)
+    output = []
+    for _ in range(500000):
+        await FallingEdge(dut.clk)
+        sample_cycle = dut.sample_cycle_count.value + 1
+        dut.sample_cycle_count.value = sample_cycle % 2272
+        if dut.sample_valid.value == 1:
+            output.append(await signed(int(dut.sample_out.value), 20) / 2**18)
+
+    fig, ax = plt.subplots()
+    # ax.plot(output)
+    ax.magnitude_spectrum(output, scale="dB")
+    plt.show()
 
 
 def test_additive_synth_runner():

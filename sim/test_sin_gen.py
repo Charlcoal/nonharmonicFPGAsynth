@@ -96,7 +96,7 @@ def test_sin_gen_runner():
     proj_path = Path(__file__).resolve().parent.parent
     sys.path.append(str(proj_path / "sim" / "model"))
     sources = [
-        proj_path / "hdl" / "sig_gen.sv",
+        proj_path / "hdl" / "sin_gen.sv",
     ]
     build_test_args = ["-Wall"]
     parameters = {}
