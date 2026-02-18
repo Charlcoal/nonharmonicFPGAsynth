@@ -7,7 +7,10 @@ module top_level (
     input  wire  [15:0] sw,
     input  wire  [ 4:0] btn,
     output logic        spk,
-    output logic        aud_sd_n
+    output logic        aud_sd_n,
+
+    // PMOD connections
+    input wire JA1
 
     // UART
     //input  wire  uart_rxd,
@@ -38,7 +41,7 @@ module top_level (
 
   assign aud_sd_n = 1'b1;  // Active low shutdown signal for audio output
 
-  assign led = sw;
+  assign led[7:0] = sw[7:0];
 
   //have btnd control system reset
   logic sys_rst;
@@ -91,12 +94,43 @@ module top_level (
       .sample_cycle_count(sig_gen_sample_cycle_count)
   );
 
+  logic midi_valid;
+  logic [6:0] midi_status;
+  logic [6:0] midi_data1;
+  logic [6:0] midi_data2;
+  midi_receive my_midi_receiver (
+      .clk(clk_100mhz),
+      .rst(sys_rst),
+      .din(JA1),
+      .dout_valid(midi_valid),
+      .status(midi_status),
+      .data1(midi_data1),
+      .data2(midi_data2)
+  );
+
+  always_ff @(posedge clk) begin
+    if (midi_valid) begin
+      led[14:8] <= midi_status;
+    end
+  end
+
+  logic [17:0] synth_freq;
+  synth_controller my_control (
+      .clk(clk_100mhz),
+      .rst(sys_rst),
+      .din_valid(midi_valid),
+      .status(midi_status),
+      .data1(midi_data1),
+      .data2(midi_data2),
+      .frequency(synth_freq)
+  );
+
   logic signed [19:0] additive_sample;
   logic additive_sample_valid;
   additive_synth my_synth (
       .clk(clk_100mhz),
       .rst(sys_rst),
-      .base_freq_in(wave_frequency[17:0]),
+      .base_freq_in(synth_freq),
       .sample_cycle_count(sig_gen_sample_cycle_count),
       .sample_out(additive_sample),
       .sample_valid(additive_sample_valid)
